@@ -6,7 +6,7 @@ import {
   Search,
   CheckCircle
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom'; // Import useNavigate
 import OrderCard from '../components/orders/OrderCard';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -23,6 +23,7 @@ const Orders: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const location = useLocation();
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -133,11 +134,29 @@ const Orders: React.FC = () => {
     );
   }
 
+  const handleOrderDeleted = (deletedOrderId: number) => {
+    setOrders(prevOrders => prevOrders.filter(order => order.id !== deletedOrderId));
+    setSuccessMessage(`Order #${deletedOrderId} has been successfully deleted.`);
+     // Clear the message after 5 seconds
+       const timer = setTimeout(() => {
+         setSuccessMessage('');
+       }, 5000);
+       // return () => clearTimeout(timer); // Not needed here as it's not in useEffect
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {successMessage && (
-        <div className="flex items-center p-4 text-sm text-success-600 bg-success-50 rounded-lg">
-          <CheckCircle className="h-5 w-5 mr-2" />
+        <div className={`flex items-center p-4 text-sm rounded-lg ${
+          successMessage.startsWith('Container purchase successful')
+            ? 'bg-green-50 text-green-700'
+            : 'bg-red-50 text-red-700'
+        }`}>
+          <CheckCircle className={`h-5 w-5 mr-2 ${
+            successMessage.startsWith('Container purchase successful')
+              ? 'text-green-500'
+              : 'text-red-500'
+          }`} />
           {successMessage}
         </div>
       )}
@@ -154,7 +173,10 @@ const Orders: React.FC = () => {
           </div>
         </div>
         <div className="mt-4 md:mt-0">
-          <Button icon={<Plus className="h-4 w-4" />}>
+          <Button
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => navigate('/containers')} // Navigate to /containers
+          >
             New Order
           </Button>
         </div>
@@ -216,6 +238,7 @@ const Orders: React.FC = () => {
               key={order.id}
               order={order}
               onClick={() => console.log('Order clicked:', order.id)}
+              onOrderDeleted={handleOrderDeleted}
             />
           ))}
         </div>

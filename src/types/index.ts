@@ -31,6 +31,7 @@ export interface Order {
   payment_status: 'pending' | 'paid' | 'failed';
   created_at: string;
   updated_at: string;
+  notes?: string; // Added for additional details
   containers?: {
     name: string;
     location: string;

@@ -29,6 +29,13 @@ interface DBUser {
 const Profile: React.FC = () => {
   const [user, setUser] = useState<DBUser | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({ name: '', avatar_url: '' });
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -50,10 +57,97 @@ const Profile: React.FC = () => {
       }
 
       setUser(data);
+      if (data) {
+        setFormData({ name: data.name || '', avatar_url: data.avatar_url || '' });
+      }
     };
 
     fetchUser();
   }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      // Update users table
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({ name: formData.name, avatar_url: formData.avatar_url, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (dbError) throw dbError;
+
+      // Update auth user metadata
+      const { data: { user: authUser }, error: authError } = await supabase.auth.updateUser({
+        data: { full_name: formData.name, avatar_url: formData.avatar_url }
+      });
+      
+      if (authError) throw authError;
+
+      // Refresh local user state
+      if (authUser) {
+         const updatedUser = { ...user, name: formData.name, avatar_url: formData.avatar_url, updated_at: new Date().toISOString() };
+         setUser(updatedUser as DBUser); // Cast because authUser.user_metadata might not match DBUser exactly
+      }
+
+
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      setMessage({ type: 'error', text: `Failed to update profile: ${error.message}` });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleToggleEdit = () => {
+    if (isEditing && user) { // Reset form data if cancelling
+        setFormData({ name: user.name || '', avatar_url: user.avatar_url || '' });
+    }
+    setIsEditing(!isEditing);
+    setMessage(null); // Clear messages when toggling edit mode
+  };
+
+  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setMessage({ type: 'error', text: 'Password must be at least 6 characters long.' });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
+      if (error) throw error;
+      setMessage({ type: 'success', text: 'Password updated successfully!' });
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+      setShowPasswordForm(false);
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      setMessage({ type: 'error', text: `Failed to change password: ${error.message}` });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
 
   if (!user) {
     return <p className="text-center text-gray-500">Loading...</p>;
@@ -61,6 +155,11 @@ const Profile: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+       {message && (
+        <div className={`p-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          {message.text}
+        </div>
+      )}
       <div>
         <h1 className="text-2xl font-semibold text-secondary-900">Profile</h1>
         <p className="mt-1 text-secondary-500">
@@ -74,17 +173,18 @@ const Profile: React.FC = () => {
             <div className="flex flex-col items-center pb-6">
               <div className="relative">
                 <img
-                  src={user.avatar_url || 'https://via.placeholder.com/150'}
-                  alt={user.name}
+                  src={formData.avatar_url || user.avatar_url || 'https://via.placeholder.com/150'}
+                  alt={formData.name || user.name}
                   className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-md"
                 />
-                <button className="absolute bottom-0 right-0 p-1 bg-primary-500 rounded-full text-white shadow-md">
-                  <Edit3 className="h-4 w-4" />
-                </button>
+                {/* Avatar edit button can be enhanced later for file upload */}
+                 {isEditing && (
+                    <p className="mt-2 text-xs text-secondary-500">Avatar URL can be edited below.</p>
+                 )}
               </div>
 
               <h2 className="mt-4 text-xl font-semibold text-secondary-900">
-                {user.name}
+                {isEditing ? formData.name : user.name}
               </h2>
 
               <p className="text-secondary-500">{user.role}</p>
@@ -98,7 +198,7 @@ const Profile: React.FC = () => {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={handleToggleEdit}
                 >
                   {isEditing ? 'Cancel' : 'Edit Profile'}
                 </Button>
@@ -150,49 +250,68 @@ const Profile: React.FC = () => {
               </h3>
 
               {isEditing && (
-                <Button variant="primary">Save Changes</Button>
+                <Button variant="primary" onClick={handleSaveChanges} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
               )}
             </div>
 
             <div className="space-y-6">
               {isEditing ? (
-                <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={(e) => { e.preventDefault(); handleSaveChanges(); }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="text-sm font-medium text-secondary-700">
+                      <label htmlFor="name" className="block text-sm font-medium text-secondary-700 mb-1">
                         Name
                       </label>
                       <input
                         type="text"
-                        className="input"
-                        value={user.name}
-                        disabled
+                        name="name"
+                        id="name"
+                        className="input w-full"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                     <div>
+                      <label htmlFor="avatar_url" className="block text-sm font-medium text-secondary-700 mb-1">
+                        Avatar URL
+                      </label>
+                      <input
+                        type="url"
+                        name="avatar_url"
+                        id="avatar_url"
+                        className="input w-full"
+                        value={formData.avatar_url}
+                        onChange={handleInputChange}
+                        placeholder="https://example.com/avatar.png"
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-secondary-700">
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">
                         Email
                       </label>
                       <input
                         type="email"
-                        className="input"
+                        className="input w-full bg-secondary-50 cursor-not-allowed"
                         value={user.email}
                         disabled
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-secondary-700">
+                      <label className="block text-sm font-medium text-secondary-700 mb-1">
                         Role
                       </label>
                       <input
                         type="text"
-                        className="input"
+                        className="input w-full bg-secondary-50 cursor-not-allowed"
                         value={user.role}
                         disabled
                       />
                     </div>
                   </div>
-                </div>
+                </form>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
@@ -225,9 +344,45 @@ const Profile: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <Button variant="outline" className="w-full md:w-auto">
-                Change Password
+              <Button variant="outline" className="w-full md:w-auto" onClick={() => { setShowPasswordForm(!showPasswordForm); setMessage(null); }}>
+                {showPasswordForm ? 'Cancel Change Password' : 'Change Password'}
               </Button>
+
+              {showPasswordForm && (
+                <form onSubmit={handleChangePassword} className="mt-4 space-y-4 p-4 border border-secondary-200 rounded-md bg-white shadow">
+                  <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-secondary-700 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      id="newPassword"
+                      className="input w-full"
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordInputChange}
+                      required
+                      minLength={6}
+                      placeholder="Enter new password (min. 6 characters)"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-secondary-700 mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      id="confirmPassword"
+                      className="input w-full"
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordInputChange}
+                      required
+                      minLength={6}
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                  <Button type="submit" variant="primary" disabled={isChangingPassword} className="w-full md:w-auto">
+                    {isChangingPassword ? 'Updating Password...' : 'Update Password'}
+                  </Button>
+                </form>
+              )}
 
               <div className="pt-4 border-t border-secondary-100">
                 <h4 className="text-sm font-medium text-secondary-700 mb-2">

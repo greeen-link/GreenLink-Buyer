@@ -3,10 +3,10 @@ import {
   Package, 
   ShoppingCart, 
   Clock, 
-  BarChart3, 
-  TrendingUp, 
+  BarChart3,
+  TrendingUp,
   CheckCircle,
-  DollarSign
+  CreditCard // Replaced DollarSign
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import StatCard from '../components/dashboard/StatCard';
@@ -63,13 +63,13 @@ const Dashboard: React.FC = () => {
           icon={<Package className="h-5 w-5 text-primary-600" />}
         />
         
-        <StatCard 
-          title="Total Spent" 
-          value={`$${stats.total_revenue}`}
-          icon={<DollarSign className="h-5 w-5 text-primary-600" />}
+        <StatCard
+          title="Total Spent"
+          value={`Rs. ${stats.total_revenue}`}
+          icon={<CreditCard className="h-5 w-5 text-primary-600" />}
         />
         
-        <StatCard 
+        <StatCard
           title="Delivery Rate" 
           value={`${stats.on_time_deliveries_percent}%`}
           icon={<Clock className="h-5 w-5 text-primary-600" />}
