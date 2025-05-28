@@ -39,6 +39,15 @@ const Dashboard: React.FC = () => {
 
   const pendingOrders = stats.orders_by_status.pending || 0;
 
+  // Find the first active container with a valid location to pass to the map
+  const firstActiveContainerWithLocation = stats.recent_containers.find(container => {
+    return container.status === 'active' &&
+           typeof container.latitude === 'number' &&
+           typeof container.longitude === 'number' &&
+           !isNaN(container.latitude) &&
+           !isNaN(container.longitude);
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -77,7 +86,8 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Container Map */}
-      <ContainerMap containers={stats.recent_containers} />
+      {/* The ContainerMap component itself now includes Card, CardHeader, CardTitle, CardContent */}
+      <ContainerMap selectedContainer={firstActiveContainerWithLocation} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

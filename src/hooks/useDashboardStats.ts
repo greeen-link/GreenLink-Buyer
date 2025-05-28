@@ -48,33 +48,25 @@ export function useDashboardStats() {
 
         if (ordersError) throw ordersError;
 
-        // Extract unique containers from orders
+        // Extract unique containers from orders, preserving latitude and longitude
         const uniqueContainers = orders?.reduce((acc: Container[], order) => {
           const dbContainer = order.containers as any; // Raw container data from Supabase
           if (dbContainer && !acc.some((c: Container) => c.id === dbContainer.id)) {
-            // Ensure latitude and longitude are valid numbers
-            // Set dummy coordinates for testing if no real coordinates exist
-            let locationString: string;
-            if (typeof dbContainer.latitude === 'number' && 
-                typeof dbContainer.longitude === 'number' && 
-                !isNaN(dbContainer.latitude) && 
-                !isNaN(dbContainer.longitude)) {
-              locationString = `${dbContainer.latitude},${dbContainer.longitude}`;
-            } else {
-              // Assign a random location in Sydney area for testing
-              const sydneyLat = -33.8688 + (Math.random() - 0.5) * 0.1;
-              const sydneyLng = 151.2093 + (Math.random() - 0.5) * 0.1;
-              locationString = `${sydneyLat},${sydneyLng}`;
-            }
+            // Ensure latitude and longitude are numbers, otherwise they'll be undefined
+            const lat = typeof dbContainer.latitude === 'number' && !isNaN(dbContainer.latitude) ? dbContainer.latitude : undefined;
+            const lng = typeof dbContainer.longitude === 'number' && !isNaN(dbContainer.longitude) ? dbContainer.longitude : undefined;
 
-            // Create a new object that includes the formatted location string
             const processedContainer: Container = {
-              ...dbContainer,
-              location: locationString,
+              ...dbContainer, // Spread all existing fields from dbContainer
+              latitude: lat,  // Explicitly set (or overwrite with undefined if invalid)
+              longitude: lng, // Explicitly set (or overwrite with undefined if invalid)
+              // location: (lat !== undefined && lng !== undefined) ? `${lat},${lng}` : undefined, // Optionally keep the location string if needed elsewhere
             };
-            delete (processedContainer as any).latitude;
-            delete (processedContainer as any).longitude;
             
+            // If you've fully migrated and don't need the old 'location' string from dbContainer,
+            // you might not even need the 'location' field in processedContainer.
+            // For now, we prioritize latitude and longitude numbers.
+
             acc.push(processedContainer);
           }
           return acc;

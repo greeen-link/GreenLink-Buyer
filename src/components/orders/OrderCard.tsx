@@ -38,13 +38,14 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onClick, onOrderDeleted })
       setIsDeleting(true);
       try {
         const { error } = await supabase
-          .from('orders') // Assuming your table is named 'orders'
+          .from('orders')
           .delete()
           .match({ id: order.id });
 
         if (error) {
           throw error;
         }
+        
         alert(`Order #${order.id} deleted successfully.`);
         onOrderDeleted(order.id); // Notify parent component
       } catch (error: any) {

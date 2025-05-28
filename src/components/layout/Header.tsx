@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar, isSidebarOpen }) => {
-  const [notifications] = useState(3);
+  const [notifications] = useState(3); // Restoring placeholder notification count
   const { user } = useAuth();
   
   // Get user's email or 'User' as fallback

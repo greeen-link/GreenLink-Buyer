@@ -11,7 +11,9 @@ export interface User {
 export interface Container {
   id: number;
   name: string;
-  location: string; // Format: "latitude,longitude"
+  location?: string; // Old field, mark as optional or remove if fully migrated
+  latitude?: number;  // New field
+  longitude?: number; // New field
   status: 'active' | 'inactive' | 'warning';
   last_updated: string;
   assigned_to: number;
@@ -32,10 +34,12 @@ export interface Order {
   created_at: string;
   updated_at: string;
   notes?: string; // Added for additional details
-  containers?: {
+  containers?: { // This represents the joined container data
     name: string;
-    location: string;
     status: string;
+    latitude?: number;
+    longitude?: number;
+    location?: string; // Keep if the DB still has it and you need it for other things
   };
 }
 

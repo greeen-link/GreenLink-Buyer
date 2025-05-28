@@ -49,8 +49,10 @@ const Orders: React.FC = () => {
             *,
             containers:container_id (
               name,
-              location,
-              status
+              status,
+              latitude,
+              longitude,
+              location
             )
           `)
           .eq('user_id', userData.id)

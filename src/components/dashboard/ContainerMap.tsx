@@ -1,125 +1,49 @@
 import React from 'react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { Container } from '../../types';
+import Card from '../ui/Card'; // Assuming Card is a general purpose component
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBnmZYDfPialNQIZgsZlxdjI8PxZA6bAsU';
+// Placeholder components if not available from a UI library
+const CardHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="p-4 border-b">{children}</div>;
+const CardTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => <h3 className="text-lg font-semibold">{children}</h3>;
+const CardContent: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="p-4">{children}</div>;
 
-const mapContainerStyle = {
-  height: '400px',
-  width: '100%',
-  borderRadius: '0.5rem'
-};
 
 interface ContainerMapProps {
-  containers: Container[];
+  selectedContainer: Container | null | undefined;
 }
 
-const parseLocation = (location: string) => {
-  try {
-    if (!location) return null;
-    const [lat, lng] = location.split(',').map(Number);
-    if (isNaN(lat) || isNaN(lng)) {
-      console.warn('Invalid location format:', location);
-      return null;
-    }
-    return { lat, lng };
-  } catch (error) {
-    console.error('Error parsing location:', error);
-    return null;
-  }
-};
+// parseLocation function is no longer needed if using separate lat/lng fields directly
 
-const ContainerMap: React.FC<ContainerMapProps> = ({ containers }) => {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    version: "weekly"
-  });
-
-  // Filter for active containers only
-  const activeContainers = containers.filter(container => container.status === 'active');
-
-  // Debug the active containers data
-  React.useEffect(() => {
-    console.log('Active Containers:', activeContainers);
-    activeContainers.forEach(container => {
-      const coords = parseLocation(container.location);
-      console.log(`Container ${container.id} location:`, container.location, '→', coords);
-    });
-  }, [activeContainers]);
-
-  const containersWithLocations = activeContainers.filter(container => {
-    const hasLocation = parseLocation(container.location) !== null;
-    if (!hasLocation) {
-      console.warn(`Container ${container.id} has invalid location:`, container.location);
-    }
-    return hasLocation;
-  });
-
-  // Set center to Sydney, Australia as default if no containers
-  const defaultMapCenter = { lat: -33.8688, lng: 151.2093 };
-  const center = containersWithLocations.length > 0
-    ? containersWithLocations.reduce(
-        (acc, container) => {
-          const coords = parseLocation(container.location);
-          if (coords) {
-            acc.lat += coords.lat / containersWithLocations.length;
-            acc.lng += coords.lng / containersWithLocations.length;
-          }
-          return acc;
-        },
-        { ...defaultMapCenter }
-      )
-    : defaultMapCenter;
-
-  if (loadError) {
-    console.error('Error loading Google Maps:', loadError);
-    return (
-      <div style={mapContainerStyle} className="bg-secondary-50 flex items-center justify-center">
-        <p className="text-error-500">Error loading map. Please try again later.</p>
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div style={mapContainerStyle} className="bg-secondary-50 flex items-center justify-center">
-        <p className="text-secondary-500">Loading map...</p>
-      </div>
-    );
-  }
-  console.log('Rendering map with center:', center);
+const ContainerMap: React.FC<ContainerMapProps> = ({ selectedContainer }) => {
+  const latitude = selectedContainer?.latitude;
+  const longitude = selectedContainer?.longitude;
 
   return (
-    <div className="relative">
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={center}
-        zoom={3}
-        options={{
-          zoomControl: true,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: false
-        }}
-      >
-        {/* Only map through containers that are active and have valid locations */}
-        {containersWithLocations.map((container) => {
-          const coords = parseLocation(container.location);
-          if (!coords) return null;
-
-          console.log(`Rendering marker for container ${container.id} at:`, coords);
-
-          return (
-            <Marker
-              key={container.id}
-              position={coords}
-              title={container.name}
-            />
-          );
-        })}
-      </GoogleMap>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Location Tracking</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {selectedContainer && latitude !== undefined && longitude !== undefined ? (
+          <div className="h-[200px] rounded-md overflow-hidden">
+            <iframe
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`}
+            ></iframe>
+          </div>
+        ) : (
+          <div className="h-[200px] bg-secondary-200 rounded-md flex items-center justify-center"> {/* Using bg-secondary-200 as a placeholder for muted */}
+            <p className="text-secondary-500"> {/* Using text-secondary-500 as a placeholder for muted-foreground */}
+              {selectedContainer ? 'Location data not available or invalid for this container.' : 'No container selected or location data unavailable.'}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
