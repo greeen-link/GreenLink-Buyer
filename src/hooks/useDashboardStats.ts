@@ -26,6 +26,20 @@ export function useDashboardStats() {
         if (userError) throw userError;
         if (!userData) throw new Error('User not found');
 
+        // Fetch all containers to get status counts
+        const { data: containers, error: containersError } = await supabase
+          .from('containers')
+          .select('id, status');
+
+        if (containersError) throw containersError;
+
+        // Count containers by status
+        const containers_by_status = {
+          active: containers?.filter(c => c.status === 'active').length || 0,
+          inactive: containers?.filter(c => c.status === 'inactive').length || 0,
+          warning: containers?.filter(c => c.status === 'warning').length || 0
+        };
+
         // Fetch user's orders and related containers
         const { data: orders, error: ordersError } = await supabase
           .from('orders')
@@ -49,35 +63,18 @@ export function useDashboardStats() {
         if (ordersError) throw ordersError;
 
         // Extract unique containers from orders, preserving latitude and longitude
-        const uniqueContainers = orders?.reduce((acc: Container[], order) => {
-          const dbContainer = order.containers as any; // Raw container data from Supabase
-          if (dbContainer && !acc.some((c: Container) => c.id === dbContainer.id)) {
-            // Ensure latitude and longitude are numbers, otherwise they'll be undefined
-            const lat = typeof dbContainer.latitude === 'number' && !isNaN(dbContainer.latitude) ? dbContainer.latitude : undefined;
-            const lng = typeof dbContainer.longitude === 'number' && !isNaN(dbContainer.longitude) ? dbContainer.longitude : undefined;
+        const { data: allContainers, error: allContainersError } = await supabase
+          .from('containers')
+          .select('*');
 
-            const processedContainer: Container = {
-              ...dbContainer, // Spread all existing fields from dbContainer
-              latitude: lat,  // Explicitly set (or overwrite with undefined if invalid)
-              longitude: lng, // Explicitly set (or overwrite with undefined if invalid)
-              // location: (lat !== undefined && lng !== undefined) ? `${lat},${lng}` : undefined, // Optionally keep the location string if needed elsewhere
-            };
-            
-            // If you've fully migrated and don't need the old 'location' string from dbContainer,
-            // you might not even need the 'location' field in processedContainer.
-            // For now, we prioritize latitude and longitude numbers.
-
-            acc.push(processedContainer);
-          }
-          return acc;
-        }, [] as Container[]) || [];
+        if (allContainersError) throw allContainersError;
 
         // Calculate total orders and other metrics
         const totalOrders = orders?.length || 0;
         const totalRevenue = orders?.reduce((sum, order) => sum + order.price, 0) || 0;
         
         // Filter active containers
-        const activeContainersArray = uniqueContainers.filter(container => container.status === 'active');
+        const activeContainersArray = allContainers.filter(container => container.status === 'active');
         const activeContainers = activeContainersArray.length;
 
         // Calculate orders by status
@@ -115,9 +112,10 @@ export function useDashboardStats() {
           orders_by_status: ordersByStatus,
           monthly_orders: monthlyOrders,
           on_time_deliveries_percent: onTimeDeliveriesPercent,
-          containers_by_status: {},
+          containers_by_status,
+          total_containers: containers?.length || 0,
           recent_orders: orders?.slice(0, 5) || [],
-          recent_containers: activeContainersArray, // Only pass active containers
+          recent_containers: allContainers || [],
           top_locations: [],
           delivery_metrics: {
             on_time: onTimeDeliveries,

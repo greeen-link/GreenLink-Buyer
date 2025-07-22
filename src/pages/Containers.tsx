@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Filter, ArrowDownUp } from 'lucide-react';
+import { Filter, ArrowDownUp, AlertTriangle } from 'lucide-react';
 import ContainerCard from '../components/containers/ContainerCard';
 import Card from '../components/ui/Card';
 import Loader from '../components/ui/Loader';
@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 const Containers: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const { data: containers = [], loading, error } = useSupabaseData<Container>({
@@ -20,6 +21,11 @@ const Containers: React.FC = () => {
 
   const handlePurchase = async (container: Container) => {
     try {
+      if (container.status === 'inactive') {
+        setAlertMessage('This container is inactive and cannot be purchased.');
+        setTimeout(() => setAlertMessage(null), 3000); // Hide message after 3 seconds
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be logged in to purchase a container');
 
@@ -95,6 +101,14 @@ const Containers: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {alertMessage && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+            <p className="text-yellow-700">{alertMessage}</p>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-secondary-900">Container Marketplace</h1>

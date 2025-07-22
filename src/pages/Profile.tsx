@@ -32,6 +32,7 @@ const Profile: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', avatar_url: '' });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -108,6 +109,41 @@ const Profile: React.FC = () => {
     }
   };
   
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    setIsUploading(true);
+    setMessage(null);
+
+    try {
+      // Upload image to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update form data with new avatar URL
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+      
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      setMessage({ type: 'error', text: `Failed to upload image: ${error.message}` });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleToggleEdit = () => {
     if (isEditing && user) { // Reset form data if cancelling
         setFormData({ name: user.name || '', avatar_url: user.avatar_url || '' });
@@ -177,10 +213,27 @@ const Profile: React.FC = () => {
                   alt={formData.name || user.name}
                   className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-md"
                 />
-                {/* Avatar edit button can be enhanced later for file upload */}
-                 {isEditing && (
-                    <p className="mt-2 text-xs text-secondary-500">Avatar URL can be edited below.</p>
-                 )}
+                {isEditing && (
+                  <div className="mt-4">
+                    <label htmlFor="avatar-upload" className="cursor-pointer">
+                      <div className="flex items-center justify-center px-4 py-2 border border-secondary-300 rounded-md shadow-sm text-sm font-medium text-secondary-700 bg-white hover:bg-secondary-50">
+                        <Edit3 className="h-4 w-4 mr-2" />
+                        Change Photo
+                      </div>
+                      <input
+                        id="avatar-upload"
+                        name="avatar"
+                        type="file"
+                        className="sr-only"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                      />
+                    </label>
+                    {isUploading && (
+                      <p className="mt-2 text-xs text-secondary-500">Uploading image...</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <h2 className="mt-4 text-xl font-semibold text-secondary-900">
@@ -272,20 +325,6 @@ const Profile: React.FC = () => {
                         value={formData.name}
                         onChange={handleInputChange}
                         required
-                      />
-                    </div>
-                     <div>
-                      <label htmlFor="avatar_url" className="block text-sm font-medium text-secondary-700 mb-1">
-                        Avatar URL
-                      </label>
-                      <input
-                        type="url"
-                        name="avatar_url"
-                        id="avatar_url"
-                        className="input w-full"
-                        value={formData.avatar_url}
-                        onChange={handleInputChange}
-                        placeholder="https://example.com/avatar.png"
                       />
                     </div>
                     <div>

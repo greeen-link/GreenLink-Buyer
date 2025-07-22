@@ -1,47 +1,64 @@
 import React from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Container } from '../../types';
-import Card from '../ui/Card'; // Assuming Card is a general purpose component
+import Card from '../ui/Card';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-// Placeholder components if not available from a UI library
+// Fix for default icon issue with webpack
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
+
+
 const CardHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="p-4 border-b">{children}</div>;
 const CardTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => <h3 className="text-lg font-semibold">{children}</h3>;
 const CardContent: React.FC<{ children: React.ReactNode }> = ({ children }) => <div className="p-4">{children}</div>;
 
-
-interface ContainerMapProps {
-  selectedContainer: Container | null | undefined;
+export interface ContainerWithOrder extends Container {
+  order_id?: number;
 }
 
-// parseLocation function is no longer needed if using separate lat/lng fields directly
+interface ContainerMapProps {
+  containers: ContainerWithOrder[];
+}
 
-const ContainerMap: React.FC<ContainerMapProps> = ({ selectedContainer }) => {
-  const latitude = selectedContainer?.latitude;
-  const longitude = selectedContainer?.longitude;
+const ContainerMap: React.FC<ContainerMapProps> = ({ containers }) => {
+  const validContainers = containers.filter(c => c.latitude != null && c.longitude != null);
+
+  const position: [number, number] = validContainers.length > 0 
+    ? [validContainers[0].latitude!, validContainers[0].longitude!] 
+    : [51.505, -0.09]; // Default position if no containers
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Location Tracking</CardTitle>
+        <CardTitle>Live Container Tracking</CardTitle>
       </CardHeader>
       <CardContent>
-        {selectedContainer && latitude !== undefined && longitude !== undefined ? (
-          <div className="h-[200px] rounded-md overflow-hidden">
-            <iframe
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              loading="lazy"
-              allowFullScreen
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`}
-            ></iframe>
-          </div>
-        ) : (
-          <div className="h-[200px] bg-secondary-200 rounded-md flex items-center justify-center"> {/* Using bg-secondary-200 as a placeholder for muted */}
-            <p className="text-secondary-500"> {/* Using text-secondary-500 as a placeholder for muted-foreground */}
-              {selectedContainer ? 'Location data not available or invalid for this container.' : 'No container selected or location data unavailable.'}
-            </p>
-          </div>
-        )}
+        <div className="h-[400px] rounded-md overflow-hidden">
+          <MapContainer center={position} zoom={validContainers.length > 0 ? 8 : 2} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {validContainers.map(container => (
+              <Marker key={container.id} position={[container.latitude!, container.longitude!]} >
+                <Popup>
+                  <div>
+                    <h4 className="font-bold">{container.name}</h4>
+                    <p>Status: {container.status}</p>
+                    {container.order_id && <p>Order ID: {container.order_id}</p>}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
       </CardContent>
     </Card>
   );

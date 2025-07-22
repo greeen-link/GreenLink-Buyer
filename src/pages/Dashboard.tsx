@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import StatCard from '../components/dashboard/StatCard';
-import ContainerMap from '../components/dashboard/ContainerMap';
+import ContainerMap, { ContainerWithOrder } from '../components/dashboard/ContainerMap';
 import Card from '../components/ui/Card';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import Loader from '../components/ui/Loader';
@@ -39,14 +39,15 @@ const Dashboard: React.FC = () => {
 
   const pendingOrders = stats.orders_by_status.pending || 0;
 
-  // Find the first active container with a valid location to pass to the map
-  const firstActiveContainerWithLocation = stats.recent_containers.find(container => {
-    return container.status === 'active' &&
-           typeof container.latitude === 'number' &&
-           typeof container.longitude === 'number' &&
-           !isNaN(container.latitude) &&
-           !isNaN(container.longitude);
-  });
+  const containersWithOrders: ContainerWithOrder[] = stats.recent_containers
+    .map(container => {
+      const order = stats.recent_orders.find(o => o.container_id === container.id);
+      return {
+        ...container,
+        order_id: order?.id
+      };
+    })
+    .filter(container => container.order_id != null);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -57,8 +58,27 @@ const Dashboard: React.FC = () => {
         </p>
       </div>
       
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Container Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatCard 
+          title="Total Containers" 
+          value={stats.total_containers || 0}
+          icon={<Package className="h-5 w-5 text-primary-600" />}
+        />
+        <StatCard 
+          title="Active Containers" 
+          value={stats.containers_by_status?.active || 0}
+          icon={<Package className="h-5 w-5 text-success-600" />}
+        />
+        <StatCard 
+          title="Inactive Containers" 
+          value={stats.containers_by_status?.inactive || 0}
+          icon={<Package className="h-5 w-5 text-secondary-600" />}
+        />
+      </div>
+
+      {/* Order Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard 
           title="My Orders" 
           value={stats.total_orders}
@@ -66,11 +86,11 @@ const Dashboard: React.FC = () => {
           change={{ value: pendingOrders, isPositive: true }}
         />
         
-        <StatCard 
-          title="Active Containers" 
-          value={stats.active_containers}
+        {/* <StatCard 
+          title="Total Containers" 
+          value={stats.total_containers || 0}
           icon={<Package className="h-5 w-5 text-primary-600" />}
-        />
+        /> */}
         
         <StatCard
           title="Total Spent"
@@ -87,7 +107,7 @@ const Dashboard: React.FC = () => {
 
       {/* Container Map */}
       {/* The ContainerMap component itself now includes Card, CardHeader, CardTitle, CardContent */}
-      <ContainerMap selectedContainer={firstActiveContainerWithLocation} />
+      <ContainerMap containers={containersWithOrders} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

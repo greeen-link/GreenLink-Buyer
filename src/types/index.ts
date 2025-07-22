@@ -43,6 +43,38 @@ export interface Order {
   };
 }
 
+export interface DashboardStats {
+  total_orders: number;
+  active_containers: number;
+  total_containers: number;
+  total_revenue: number;
+  orders_by_status: Record<string, number>;
+  containers_by_status: {
+    active: number;
+    inactive: number;
+    warning: number;
+  };
+  monthly_orders: Array<{
+    month: string;
+    count: number;
+    revenue: number;
+  }>;
+  on_time_deliveries_percent: number;
+  recent_orders: Order[];
+  recent_containers: Container[];
+  top_locations: any[];
+  delivery_metrics: {
+    on_time: number;
+    delayed: number;
+    total: number;
+  };
+  container_metrics: {
+    temperature_avg: number;
+    humidity_avg: number;
+    battery_level_avg: number;
+  };
+}
+
 export interface OrderProduct {
   id: string;
   name: string;
